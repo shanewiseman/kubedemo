@@ -1,4 +1,8 @@
 ---
+
+- name: home bin dir
+  file: path='~/bin' state=directory
+
 - name: set default group
   set_fact:
     group_name: 'libvirt'

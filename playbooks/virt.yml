@@ -2,6 +2,6 @@
 
 - hosts: localhost
   roles:
-    - docker
+    #- docker
     - minikube
-    - kubebuilder
+    #- kubebuilder
