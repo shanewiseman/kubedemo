@@ -1,0 +1,6 @@
+.agallegocfg/
+*~
+*.*~
+venv
+*.retry
+.DS_Store

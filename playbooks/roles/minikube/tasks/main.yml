@@ -1,0 +1,162 @@
+---
+- name: set default group
+  set_fact:
+    group_name: 'libvirt'
+
+- name: dectect platform for debian
+  when: ansible_os_family == "Debian"
+  set_fact:
+    group_name: 'libvirtd'
+
+- name: install libvirt deps
+  become: yes
+  apt: name='{{item}}' state=present
+  when: ansible_os_family == "Debian"
+  with_items:
+    - libvirt-bin
+    - qemu-kvm
+    - virt-viewer
+    - libguestfs-tools
+  notify:
+    - addme_libvirt_group
+    - refresh_libvirt_group
+- name: install libvirt deps
+  become: yes
+  dnf: name='{{item}}' state=present
+  when: ansible_os_family == "RedHat"
+  with_items:
+    - libvirt-daemon-kvm
+    - qemu-kvm
+    - virt-viewer
+    - libguestfs-tools
+  notify:
+    - addme_libvirt_group
+    - refresh_libvirt_group
+- name: get latest kubctl version
+  when: ansible_system == "Linux"
+  changed_when: false
+  shell:
+    "curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt"
+  register: kubeversion
+
+- name: install homebrew items
+  when: ansible_os_family == "Darwin"
+  homebrew:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - docker-machine-driver-hyperkit
+    - kubectl
+- name: cask
+  when: ansible_os_family == "Darwin"
+  homebrew_cask:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - minikube
+
+- name: ensure that root can start hyperkit
+  when: ansible_os_family == "Darwin"
+  become: yes
+  file:
+    path:  /usr/local/bin/docker-machine-driver-hyperkit
+    owner: root
+    group: wheel
+    mode: 'u+s'
+
+- name: verify only latest kubectl
+  when: ansible_system == "Linux"
+  shell: |
+    if [[ -e ~/bin/kubectl ]]; then
+       current=$(kubectl version --short  --client | awk '{print $3}')
+       if [[ "${current}" != "{{kubeversion.stdout}}" ]]; then
+         rm ~/bin/kubectl
+       fi
+    fi
+  args:
+    executable: /bin/bash
+
+- name: download kubectl
+  when: ansible_system == "Linux"
+  get_url:
+    url='https://storage.googleapis.com/kubernetes-release/release/{{kubeversion.stdout}}/bin/linux/amd64/kubectl'
+    dest='~/bin/kubectl'
+    mode=u+rx
+
+# check and remove if version is not the latest
+- name: verify only latest minikube
+  when: ansible_system == "Linux"
+  shell: |
+    if [[ -e ~/bin/minikube ]]; then
+       current=$(minikube update-check | head -n1 | awk '{print $2}')
+       latest=$(minikube update-check | tail -n1 | awk '{print $2}')
+       if [[ "${current}" != "${latest}" ]]; then
+         rm ~/bin/minikube
+         if [[ ~/bin/docker-machine-driver-kvm2 ]]; then
+            rm ~/bin/docker-machine-driver-kvm2
+         fi
+       fi
+    fi
+
+- name: download minikube
+  when: ansible_system == "Linux"
+  get_url:
+    url='https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64'
+    dest='~/bin/minikube'
+    mode=u+rx
+  notify:
+    - addme_libvirt_group
+    - refresh_libvirt_group
+- name: download kvm2 minikube
+  when: ansible_system == "Linux"
+  get_url:
+    url='https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2'
+    dest='~/bin/docker-machine-driver-kvm2'
+    mode=u+rx
+  notify:
+    - addme_libvirt_group
+    - refresh_libvirt_group
+- debug:
+    msg: "remove ~/.minikube when having issues"
+
+- name: Disable libvirtd default service runner
+  when: ansible_os_family == "RedHat"
+  become: yes
+  service: name=libvirtd enabled=no
+
+- name: Disable libvirtd default service runner
+  when: ansible_os_family == "Debian"
+  become: yes
+  service: name=libvirt-guests enabled=no
+
+- name: set version for virtcl
+  set_fact:
+    virtctl_version: 'v0.4.1'
+# install virtctl for managing vm's via kubevirt.io
+- name: install virtctl
+  when: ansible_system == "Linux"
+  get_url:
+    url='https://github.com/kubevirt/kubevirt/releases/download/{{virtctl_version}}/virtctl-{{virtctl_version}}-linux-amd64'
+    dest='~/bin/virtctl'
+    mode=u+rx
+
+- name: "add launch_minikube.sh to bin"
+  when: ansible_system == "Linux"
+  copy: src=launch_minikube.sh
+        dest=~/bin
+        mode=u+rx
+
+- name: "add launch_minikube.sh to bin"
+  when: ansible_os_family == "Darwin"
+  copy: src=mac_launch_minikube.sh
+        dest=~/bin/launch_minikube.sh
+        mode=u+rx
+
+- name: install kubex and kubens
+  get_url:
+    url='https://raw.githubusercontent.com/ahmetb/kubectx/master/{{item}}'
+    dest='~/bin/{{item}}'
+    mode=u+rx
+  with_items:
+    - kubectx
+    - kubens

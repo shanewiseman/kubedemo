@@ -1,0 +1,55 @@
+#!/bin/bash
+echo "Running on: ${OSTYPE}"
+git_root=$(git rev-parse --show-toplevel)
+venv=.agallegocfg
+if [[ ! -d "${git_root}/${venv}" ]]; then
+    if [[ "$OSTYPE" == "linux"* ]]; then
+        if [[ "$(. /etc/os-release; echo $NAME)" = "Ubuntu" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y \
+                 software-properties-common \
+                 python-dev \
+                 python-pip \
+                 python3-dev \
+                 python3-pip
+        else
+            sudo dnf install -y \
+                 gcc \
+                 python-devel \
+                 python-pip \
+                 python3-devel \
+                 python3-pip \
+                 libffi-devel \
+                 openssl-devel \
+                 redhat-rpm-config \
+                 python-dnf \
+                 libselinux-python
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # Ensure Apple's command line tools are installed
+        if [[ $(! command -v cc >/dev/null) == 1 ]]; then
+            xcode-select --install
+        fi
+        if [[ $(which brew) == "" ]]; then
+            /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+        fi
+        if [[ $(which pip) == "" ]]; then
+            sudo easy_install pip
+        fi
+    else
+        echo "Operating system not supported: ${OSTYPE}"
+        exit 1;
+    fi
+    # real installation
+    if [[ $(which virtualenv) == "" ]]; then
+        echo "We install virtual env to bootstrap, but we use pyenv for real work"
+        sudo pip install virtualenv
+    fi
+    mkdir -p ${git_root}/${venv}
+    virtualenv -p python3 ${git_root}/${venv}
+    source ${git_root}/${venv}/bin/activate
+    pip install -r ${git_root}/requirements.txt
+fi
+
+source ${git_root}/${venv}/bin/activate
+

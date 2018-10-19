@@ -1,0 +1,13 @@
+---
+
+- name: addme_libvirt_group
+  become: yes
+  user:
+    name: "{{ansible_user}}"
+    group: "{{group_name}}"
+    append: yes
+
+- name: refresh_libvirt_group
+  become: yes
+  shell:
+    "newgrp {{group_name}}"
