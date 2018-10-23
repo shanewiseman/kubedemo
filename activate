@@ -2,18 +2,24 @@
 echo "Running on: ${OSTYPE}"
 git_root=$(git rev-parse --show-toplevel)
 venv=.agallegocfg
+sudo=""
+
 if [[ ! -d "${git_root}/${venv}" ]]; then
     if [[ "$OSTYPE" == "linux"* ]]; then
         if [[ "$(. /etc/os-release; echo $NAME)" = "Ubuntu" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y \
+	    if [[ "$(whoami)" != "root" ]]; then
+		   sudo="sudo" 
+	    fi
+
+            $sudo apt-get update
+            $sudo apt-get install -y \
                  software-properties-common \
                  python-dev \
                  python-pip \
                  python3-dev \
                  python3-pip
         else
-            sudo dnf install -y \
+            $sudo dnf install -y \
                  gcc \
                  python-devel \
                  python-pip \
@@ -34,7 +40,7 @@ if [[ ! -d "${git_root}/${venv}" ]]; then
             /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
         fi
         if [[ $(which pip) == "" ]]; then
-            sudo easy_install pip
+            $sudo easy_install pip
         fi
     else
         echo "Operating system not supported: ${OSTYPE}"
@@ -43,7 +49,7 @@ if [[ ! -d "${git_root}/${venv}" ]]; then
     # real installation
     if [[ $(which virtualenv) == "" ]]; then
         echo "We install virtual env to bootstrap, but we use pyenv for real work"
-        sudo pip install virtualenv
+        $sudo pip install virtualenv
     fi
     mkdir -p ${git_root}/${venv}
     virtualenv -p python3 ${git_root}/${venv}
