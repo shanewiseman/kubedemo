@@ -6,12 +6,17 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+sudo=""
+if [[ "$(whoami)" != "root" ]]; then
+    sudo="sudo"
+fi
+
 if [[ "$(. /etc/os-release; echo $NAME)" = "Ubuntu" ]]; then
-    sudo systemctl start libvirt-guests
-    sudo systemctl start virtlogd.socket
-    sudo systemctl start libvirt-bin
+    $sudo systemctl start libvirt-guests
+    $sudo systemctl start virtlogd.socket
+    $sudo systemctl start libvirt-bin
 else
-    sudo systemctl start libvirtd
+    $sudo systemctl start libvirtd
 fi
 
 # Remember to start your VM's like this
